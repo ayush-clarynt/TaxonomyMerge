@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapping Bench</title>
+<style>
+  :root{
+    --bg:#0f1620; --panel:#172230; --panel2:#1d2b3a; --line:#2b3c4f;
+    --txt:#e7eef6; --muted:#9fb2c6; --accent:#4ea1ff; --accent2:#2d7be0;
+    --ok:#3ecf8e; --warn:#ffb020; --blank:#3a2230; --blankline:#7a3b52;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       background:var(--bg);color:var(--txt)}
+  header{padding:18px 24px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header h1{margin:0;font-size:18px;letter-spacing:.3px}
+  header p{margin:4px 0 0;color:var(--muted);font-size:12.5px}
+  main{padding:20px 24px;max-width:1280px;margin:0 auto}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .card h2{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+  label.file{display:block;border:1.5px dashed var(--line);border-radius:8px;padding:14px;text-align:center;
+    cursor:pointer;background:var(--panel2);transition:border-color .15s}
+  label.file:hover{border-color:var(--accent)}
+  label.file input{display:none}
+  .status{margin-top:8px;font-size:12.5px;min-height:18px}
+  .status.ok{color:var(--ok)} .status.err{color:#ff6b6b}
+  textarea{width:100%;min-height:74px;background:var(--bg);color:var(--txt);border:1px solid var(--line);
+    border-radius:6px;padding:8px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:vertical}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+  button{background:var(--accent2);color:#fff;border:0;border-radius:7px;padding:9px 14px;font-size:13px;cursor:pointer}
+  button:hover{background:var(--accent)} button:disabled{opacity:.45;cursor:not-allowed}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--txt)}
+  .field{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+  .field input[type=number]{width:64px;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:5px;padding:5px}
+  .summary{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px 16px;min-width:110px}
+  .stat b{display:block;font-size:22px} .stat span{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px}
+  .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:10px;margin-top:6px}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--panel2);position:sticky;top:0;color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;white-space:nowrap}
+  th .arr{opacity:.5;font-size:10px}
+  tr.blank{background:var(--blank)}
+  tr.blank td:first-child{border-left:3px solid var(--blankline)}
+  td.code{font-family:ui-monospace,Menlo,Consolas,monospace}
+  td .cnt{display:inline-block;min-width:22px;text-align:center;background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:1px 8px}
+  select{background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:5px 6px;max-width:220px}
+  .reason{color:var(--muted);font-size:12px}
+  .ovr{color:var(--warn);font-weight:600}
+  .hint{color:var(--muted);font-size:12px;margin:4px 0 0}
+  .pill{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:20px;border:1px solid var(--line);color:var(--muted);margin-left:6px}
+  .searchbar{margin:10px 0 0}
+  .searchbar input{width:260px;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:7px 9px}
+  footer{color:var(--muted);font-size:11.5px;padding:18px 24px;border-top:1px solid var(--line);margin-top:20px}
+  .empty{padding:30px;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Mapping Bench <span class="pill">offline · client-side</span></h1>
+  <p>Upload a places CSV and a taxonomy JSON. Each point-of-sale <code>place_type</code> gets the best <code>outlet_format</code>; everything else stays blank. Tune, override, export.</p>
+</header>
+
+<main>
+  <div class="grid">
+    <div class="card">
+      <h2>1 · Places CSV</h2>
+      <label class="file">
+        <input type="file" id="csvFile" accept=".csv,text/csv">
+        <div>Click to choose a CSV file</div>
+        <div class="hint">Must contain a <code>place_type</code> column. All columns are preserved.</div>
+      </label>
+      <div class="status" id="csvStatus"></div>
+    </div>
+    <div class="card">
+      <h2>2 · Taxonomy JSON</h2>
+      <label class="file">
+        <input type="file" id="jsonFile" accept=".json,application/json">
+        <div>Click to choose a JSON file</div>
+        <div class="hint">Object of <code>code→meaning</code> or array of objects (code/format/label/name/description/examples).</div>
+      </label>
+      <div class="status" id="jsonStatus"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h2>3 · Point-of-sale gate <span class="pill">edit & re-run</span></h2>
+    <div class="row2">
+      <div>
+        <div class="hint" style="margin-bottom:4px">INCLUDE — treat as POS (assign a format). One keyword per line or comma-separated.</div>
+        <textarea id="includeKw"></textarea>
+      </div>
+      <div>
+        <div class="hint" style="margin-bottom:4px">EXCLUDE — never a POS (leave blank). Checked first; wins over include.</div>
+        <textarea id="excludeKw"></textarea>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="field">Match threshold <input type="number" id="threshold" value="1" min="0" step="1"></div>
+      <button id="runBtn" disabled>Run mapping</button>
+      <button class="ghost" id="resetKw">Reset keywords</button>
+      <button class="ghost" id="clearOvr">Clear overrides</button>
+      <button id="downloadBtn" disabled>Download CSV</button>
+    </div>
+    <p class="hint" id="gateNote">Default rule: if no INCLUDE keyword and no taxonomy match apply, the place is left blank as "not a point of sale".</p>
+  </div>
+
+  <div class="summary" id="summary" style="display:none">
+    <div class="stat"><b id="sRows">0</b><span>Total rows</span></div>
+    <div class="stat"><b id="sTypes">0</b><span>Unique place_types</span></div>
+    <div class="stat"><b id="sMapped">0</b><span>Mapped</span></div>
+    <div class="stat"><b id="sBlank">0</b><span>Left blank</span></div>
+    <div class="stat"><b id="sOvr">0</b><span>Overrides</span></div>
+  </div>
+
+  <div class="searchbar" id="searchWrap" style="display:none">
+    <input id="search" placeholder="Filter place_types…">
+  </div>
+
+  <div class="tablewrap" id="tableWrap" style="display:none">
+    <table id="reviewTable">
+      <thead>
+        <tr>
+          <th data-sort="type">place_type <span class="arr"></span></th>
+          <th data-sort="format">outlet_format <span class="arr"></span></th>
+          <th data-sort="reason">reason <span class="arr"></span></th>
+          <th data-sort="count">rows <span class="arr"></span></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="empty" id="emptyState">Load both files, then press <b>Run mapping</b>.</div>
+</main>
+
+<footer>All processing happens locally in your browser. No data leaves this page. Deterministic: identical place_types always map identically.</footer>
+
+<script>
+"use strict";
+/* ---------------- State ---------------- */
+const State = {
+  csvName: null,
+  headers: [],          // original header order
+  rows: [],             // array of objects keyed by header
+  taxonomy: [],         // [{code, text, raw}]
+  taxByCode: {},        // code -> entry
+  mapping: {},          // place_type(raw) -> {code, reason}
+  overrides: {},        // place_type(raw) -> code | "" (blank)
+  typeOrder: [],        // unique place_types in first-seen order
+  typeCounts: {},       // place_type -> count
+  sortKey: "count",
+  sortDir: -1,
+};
+
+const DEFAULT_INCLUDE = [
+  "shop","store","mart","supermarket","hypermarket","grocery","kirana","provision",
+  "general store","departmental","retail","outlet","bakery","sweet","confection",
+  "pharmacy","chemist","medical store","druggist","mobile","electronics","appliance",
+  "apparel","clothing","garment","footwear","shoe","textile","fabric","jewel","jewellery",
+  "jewelry","optical","optician","spectacle","hardware","paint","stationery","book",
+  "liquor","wine","beer","tobacco","pan","cigarette","cosmetic","gift","toy","furniture",
+  "florist","flower","fruit","vegetable","meat","fish","poultry","dairy","kiosk","stall",
+  "restaurant","cafe","coffee","dhaba","eatery","diner","bar","pub","food","tea","juice",
+  "ice cream","sweets","salon","spa","barber","parlour","parlor","beauty","grooming","nail"
+].join("\n");
+
+const DEFAULT_EXCLUDE = [
+  "clinic","hospital","nursing home","diagnostic","laboratory","lab","dispensary",
+  "doctor","dentist","physio","bank","atm","insurance","finance company","school","college",
+  "university","institute","coaching","tuition","academy","office","corporate","headquarter",
+  "government","municipal","panchayat","court","police","embassy","consulate","temple",
+  "mosque","church","gurudwara","shrine","worship","station","bus stand","depot","airport",
+  "railway","metro","port","warehouse","godown","factory","plant","ngo","trust","society",
+  "gym","fitness","library","museum","park","stadium","post office","petrol pump","fuel station"
+].join("\n");
+
+/* ---------------- CSV parsing ---------------- */
+function parseCSV(text){
+  // strip BOM
+  if(text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const rows = [];
+  let field = "", row = [], i = 0, inQ = false;
+  const n = text.length;
+  while(i < n){
+    const c = text[i];
+    if(inQ){
+      if(c === '"'){
+        if(text[i+1] === '"'){ field += '"'; i += 2; continue; }
+        inQ = false; i++; continue;
+      }
+      field += c; i++; continue;
+    }
+    if(c === '"'){ inQ = true; i++; continue; }
+    if(c === ','){ row.push(field); field = ""; i++; continue; }
+    if(c === '\r'){ i++; continue; } // handle CRLF / lone CR
+    if(c === '\n'){ row.push(field); rows.push(row); field = ""; row = []; i++; continue; }
+    field += c; i++;
+  }
+  // last field/row (if any content or pending row)
+  if(field.length > 0 || row.length > 0){ row.push(field); rows.push(row); }
+  // drop fully-empty rows (blank lines)
+  return rows.filter(r => !(r.length === 1 && r[0].trim() === ""));
+}
+
+function csvEscape(v){
+  v = (v === undefined || v === null) ? "" : String(v);
+  if(/[",\r\n]/.test(v)) return '"' + v.replace(/"/g, '""') + '"';
+  return v;
+}
+
+/* ---------------- Taxonomy parsing (defensive) ---------------- */
+function pick(obj, keys){
+  for(const k of keys){
+    for(const ok of Object.keys(obj)){
+      if(ok.toLowerCase() === k){ const v = obj[ok]; if(v!==undefined && v!==null && String(v).trim()!=="") return v; }
+    }
+  }
+  return null;
+}
+function flattenText(v){
+  if(v === null || v === undefined) return "";
+  if(Array.isArray(v)) return v.map(flattenText).join(" ");
+  if(typeof v === "object") return Object.values(v).map(flattenText).join(" ");
+  return String(v);
+}
+function parseTaxonomy(data){
+  const out = [];
+  const codeKeys = ["code","id","key","format_code","outlet_format","format"];
+  const textKeys = ["meaning","description","desc","definition","label","name","title","format","examples","example","keywords","synonyms"];
+  if(Array.isArray(data)){
+    data.forEach((item, idx) => {
+      if(item === null) return;
+      if(typeof item !== "object"){
+        out.push({ code: String(item), text: String(item), raw: item });
+        return;
+      }
+      let code = pick(item, codeKeys);
+      if(code === null) code = pick(item, ["name","label","title"]); // fall back to a human label as the code
+      if(code === null) code = "FMT_" + idx;
+      const textParts = [];
+      for(const k of Object.keys(item)){
+        if(codeKeys.includes(k.toLowerCase())) { textParts.push(flattenText(item[k])); continue; }
+        textParts.push(flattenText(item[k]));
+      }
+      out.push({ code: String(code), text: textParts.join(" "), raw: item });
+    });
+  } else if(data && typeof data === "object"){
+    // could be {code: meaning} OR {formats:[...]} / {taxonomy:[...]}
+    const nestedArr = Object.values(data).find(v => Array.isArray(v) && v.length && typeof v[0] === "object");
+    if(nestedArr && Object.keys(data).length <= 3){
+      return parseTaxonomy(nestedArr);
+    }
+    for(const [code, val] of Object.entries(data)){
+      out.push({ code: String(code), text: code + " " + flattenText(val), raw: val });
+    }
+  }
+  return out;
+}
+
+/* ---------------- Tokenisation & matching ---------------- */
+const STOP = new Set(["and","or","the","a","an","of","for","to","in","on","with","store","shop","outlet","place","type","other","others","misc","general","retail","sale","sales","point","pos","unit","centre","center"]);
+function tokens(s){
+  return String(s||"").toLowerCase()
+    .replace(/[^a-z0-9]+/g," ")
+    .split(" ")
+    .map(t=>t.trim())
+    .filter(t=>t.length>1);
+}
+function tokenSet(s, keepStop){
+  const set = new Set();
+  for(const t of tokens(s)){ if(keepStop || !STOP.has(t)) set.add(t); }
+  return set;
+}
+
+function parseKwList(text){
+  return text.split(/[\n,]+/).map(s=>s.trim().toLowerCase()).filter(Boolean);
+}
+
+function gate(placeTypeLower, includeKw, excludeKw){
+  // returns {pos:boolean, hit:string|null, kind:"include"|"exclude"|"none"}
+  for(const kw of excludeKw){ if(placeTypeLower.includes(kw)) return {pos:false, hit:kw, kind:"exclude"}; }
+  for(const kw of includeKw){ if(placeTypeLower.includes(kw)) return {pos:true, hit:kw, kind:"include"}; }
+  return {pos:false, hit:null, kind:"none"};
+}
+
+function scoreFormat(ptTokens, fmt){
+  // keyword overlap + substring boost; deterministic
+  const fTokens = tokenSet(fmt.text, false);
+  let score = 0;
+  ptTokens.forEach(t => {
+    if(fTokens.has(t)) score += 2;
+    else {
+      // partial: token appears inside any format token (or vice versa)
+      for(const ft of fTokens){
+        if(ft.length>3 && (ft.includes(t) || t.includes(ft))){ score += 1; break; }
+      }
+    }
+  });
+  return score;
+}
+
+function bestMatch(placeTypeRaw, threshold){
+  const ptTokens = tokenSet(placeTypeRaw, false);
+  if(ptTokens.size === 0) return {code:null, score:0};
+  let best = null, bestScore = -1;
+  // iterate in a stable order (as parsed) so ties are deterministic
+  for(const fmt of State.taxonomy){
+    const s = scoreFormat(ptTokens, fmt);
+    if(s > bestScore){ bestScore = s; best = fmt; }
+  }
+  if(best && bestScore >= Math.max(1, threshold)) return {code:best.code, score:bestScore};
+  return {code:null, score:bestScore};
+}
+
+/* ---------------- Run mapping ---------------- */
+function runMapping(){
+  const includeKw = parseKwList(document.getElementById("includeKw").value);
+  const excludeKw = parseKwList(document.getElementById("excludeKw").value);
+  const threshold = parseInt(document.getElementById("threshold").value,10) || 0;
+  State.mapping = {};
+
+  for(const pt of State.typeOrder){
+    const raw = pt;
+    const trimmed = raw.trim();
+    if(trimmed === ""){
+      State.mapping[pt] = {code:null, reason:"empty place_type — left blank"};
+      continue;
+    }
+    const lower = trimmed.toLowerCase();
+    const g = gate(lower, includeKw, excludeKw);
+    if(g.kind === "exclude"){
+      State.mapping[pt] = {code:null, reason:`not a point of sale (matched exclude "${g.hit}")`};
+      continue;
+    }
+    if(g.kind === "none"){
+      // not flagged POS by include list — try a match anyway only if it strongly matches? Spec: gate first.
+      State.mapping[pt] = {code:null, reason:"not recognised as a point of sale (no POS keyword)"};
+      continue;
+    }
+    // POS -> match
+    const m = bestMatch(trimmed, threshold);
+    if(m.code){
+      State.mapping[pt] = {code:m.code, reason:`matched '${trimmed}' → ${m.code}`};
+    } else {
+      State.mapping[pt] = {code:null, reason:"point of sale, but no suitable format scored above threshold"};
+    }
+  }
+  render();
+  document.getElementById("downloadBtn").disabled = false;
+}
+
+/* ---------------- Resolve (override-aware) ---------------- */
+function resolved(pt){
+  if(Object.prototype.hasOwnProperty.call(State.overrides, pt)){
+    const ov = State.overrides[pt];
+    if(ov === ""){ return {code:"", reason:"override: left blank", overridden:true}; }
+    return {code:ov, reason:`override → ${ov}`, overridden:true};
+  }
+  const m = State.mapping[pt] || {code:null, reason:""};
+  return {code:m.code || "", reason:m.reason, overridden:false};
+}
+
+/* ---------------- Render ---------------- */
+function buildCodeOptions(selected){
+  let html = `<option value="__none__">— leave blank —</option>`;
+  html += `<option value="__auto__"${selected===undefined?" selected":""}>(auto)</option>`;
+  for(const fmt of State.taxonomy){
+    const sel = (selected === fmt.code) ? " selected" : "";
+    html += `<option value="${escAttr(fmt.code)}"${sel}>${escHtml(fmt.code)}</option>`;
+  }
+  return html;
+}
+function escHtml(s){ return String(s).replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+function escAttr(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function render(){
+  const tbody = document.querySelector("#reviewTable tbody");
+  const filter = (document.getElementById("search").value||"").toLowerCase();
+  let rowsArr = State.typeOrder.map(pt => {
+    const r = resolved(pt);
+    return {
+      pt, code: r.code, reason: r.reason, overridden: r.overridden,
+      count: State.typeCounts[pt]||0
+    };
+  });
+  // sort
+  const k = State.sortKey, dir = State.sortDir;
+  rowsArr.sort((a,b)=>{
+    let av, bv;
+    if(k==="type"){ av=a.pt.toLowerCase(); bv=b.pt.toLowerCase(); }
+    else if(k==="format"){ av=a.code.toLowerCase(); bv=b.code.toLowerCase(); }
+    else if(k==="reason"){ av=a.reason.toLowerCase(); bv=b.reason.toLowerCase(); }
+    else { av=a.count; bv=b.count; }
+    if(av<bv) return -1*dir; if(av>bv) return 1*dir; return a.pt.localeCompare(b.pt);
+  });
+
+  tbody.innerHTML = "";
+  let shown=0;
+  for(const r of rowsArr){
+    if(filter && !r.pt.toLowerCase().includes(filter)) continue;
+    shown++;
+    const tr = document.createElement("tr");
+    if(!r.code) tr.className = "blank";
+    const ptDisplay = r.pt.trim()==="" ? '<i style="color:var(--muted)">(empty)</i>' : escHtml(r.pt);
+    const selVal = Object.prototype.hasOwnProperty.call(State.overrides, r.pt)
+        ? (State.overrides[r.pt]==="" ? "__none__" : State.overrides[r.pt])
+        : undefined;
+    tr.innerHTML = `
+      <td>${ptDisplay}</td>
+      <td class="code">${r.code? `<span class="${r.overridden?'ovr':''}">${escHtml(r.code)}</span>` : '<span style="color:var(--muted)">— blank —</span>'}
+          <div><select data-pt="${escAttr(r.pt)}">${buildCodeOptions(selVal)}</select></div></td>
+      <td class="reason">${escHtml(r.reason)}</td>
+      <td><span class="cnt">${r.count}</span></td>`;
+    tbody.appendChild(tr);
+  }
+  // wire selects
+  tbody.querySelectorAll("select").forEach(sel=>{
+    sel.addEventListener("change", e=>{
+      const pt = e.target.getAttribute("data-pt");
+      const v = e.target.value;
+      if(v === "__auto__"){ delete State.overrides[pt]; }
+      else if(v === "__none__"){ State.overrides[pt] = ""; }
+      else { State.overrides[pt] = v; }
+      render(); updateSummary();
+    });
+  });
+  // sort arrows
+  document.querySelectorAll("#reviewTable th").forEach(th=>{
+    const arr = th.querySelector(".arr");
+    if(th.dataset.sort === State.sortKey) arr.textContent = State.sortDir>0 ? "▲" : "▼";
+    else arr.textContent = "";
+  });
+
+  document.getElementById("tableWrap").style.display = "";
+  document.getElementById("searchWrap").style.display = "";
+  document.getElementById("emptyState").style.display = shown? "none" : "block";
+  if(shown===0) document.getElementById("emptyState").textContent = "No place_types match your filter.";
+  updateSummary();
+}
+
+function updateSummary(){
+  let mapped=0, blank=0, ovr=0;
+  for(const pt of State.typeOrder){
+    const r = resolved(pt);
+    if(r.code) mapped++; else blank++;
+    if(r.overridden) ovr++;
+  }
+  document.getElementById("sRows").textContent = State.rows.length;
+  document.getElementById("sTypes").textContent = State.typeOrder.length;
+  document.getElementById("sMapped").textContent = mapped;
+  document.getElementById("sBlank").textContent = blank;
+  document.getElementById("sOvr").textContent = ovr;
+  document.getElementById("summary").style.display = "flex";
+}
+
+/* ---------------- File loading ---------------- */
+document.getElementById("csvFile").addEventListener("change", e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const st = document.getElementById("csvStatus");
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const rows = parseCSV(reader.result);
+      if(rows.length < 1) throw new Error("file appears empty");
+      const headers = rows[0].map(h=>h.trim());
+      const ptIdx = headers.findIndex(h=>h.toLowerCase()==="place_type");
+      if(ptIdx === -1) throw new Error('no "place_type" column found');
+      State.csvName = f.name;
+      State.headers = headers;
+      State.rows = [];
+      State.typeOrder = []; State.typeCounts = {};
+      const seen = new Set();
+      for(let r=1;r<rows.length;r++){
+        const obj = {};
+        headers.forEach((h,ci)=>{ obj[h] = rows[r][ci] !== undefined ? rows[r][ci] : ""; });
+        State.rows.push(obj);
+        const pt = obj[headers[ptIdx]] !== undefined ? obj[headers[ptIdx]] : "";
+        State.typeCounts[pt] = (State.typeCounts[pt]||0)+1;
+        if(!seen.has(pt)){ seen.add(pt); State.typeOrder.push(pt); }
+      }
+      State._ptHeader = headers[ptIdx];
+      st.className="status ok";
+      st.textContent = `Loaded ${f.name} — ${State.rows.length} rows, ${headers.length} columns, ${State.typeOrder.length} unique place_types.`;
+    }catch(err){
+      State.rows = []; st.className="status err"; st.textContent = "Error: "+err.message;
+    }
+    maybeEnableRun();
+  };
+  reader.onerror = ()=>{ st.className="status err"; st.textContent="Could not read file."; };
+  reader.readAsText(f);
+});
+
+document.getElementById("jsonFile").addEventListener("change", e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const st = document.getElementById("jsonStatus");
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      let txt = reader.result;
+      if(txt.charCodeAt(0)===0xFEFF) txt = txt.slice(1);
+      const data = JSON.parse(txt);
+      const tax = parseTaxonomy(data);
+      if(tax.length === 0) throw new Error("no taxonomy entries recognised");
+      State.taxonomy = tax;
+      State.taxByCode = {};
+      tax.forEach(t=>{ State.taxByCode[t.code]=t; });
+      st.className="status ok";
+      st.textContent = `Loaded ${f.name} — ${tax.length} formats: ${tax.slice(0,6).map(t=>t.code).join(", ")}${tax.length>6?"…":""}`;
+    }catch(err){
+      State.taxonomy = []; st.className="status err"; st.textContent="Error: "+err.message;
+    }
+    maybeEnableRun();
+  };
+  reader.onerror = ()=>{ st.className="status err"; st.textContent="Could not read file."; };
+  reader.readAsText(f);
+});
+
+function maybeEnableRun(){
+  document.getElementById("runBtn").disabled = !(State.rows.length>0 && State.taxonomy.length>0);
+}
+
+/* ---------------- Export ---------------- */
+function downloadCSV(){
+  if(State.rows.length===0) return;
+  const headers = State.headers.slice();
+  const outHeaders = headers.concat(["outlet_format","mapping_reason"]);
+  const lines = [ outHeaders.map(csvEscape).join(",") ];
+  const ptHeader = State._ptHeader;
+  for(const row of State.rows){
+    const pt = row[ptHeader] !== undefined ? row[ptHeader] : "";
+    const r = resolved(pt);
+    const vals = headers.map(h => row[h]);
+    vals.push(r.code || "");
+    vals.push(r.reason || "");
+    lines.push(vals.map(csvEscape).join(","));
+  }
+  const csv = lines.join("\r\n") + "\r\n";
+  const blob = new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const base = (State.csvName||"places.csv").replace(/\.csv$/i,"");
+  const a = document.createElement("a");
+  a.href = url; a.download = base + "_mapped.csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
+/* ---------------- Wire controls ---------------- */
+document.getElementById("includeKw").value = DEFAULT_INCLUDE;
+document.getElementById("excludeKw").value = DEFAULT_EXCLUDE;
+document.getElementById("runBtn").addEventListener("click", runMapping);
+document.getElementById("downloadBtn").addEventListener("click", downloadCSV);
+document.getElementById("resetKw").addEventListener("click", ()=>{
+  document.getElementById("includeKw").value = DEFAULT_INCLUDE;
+  document.getElementById("excludeKw").value = DEFAULT_EXCLUDE;
+});
+document.getElementById("clearOvr").addEventListener("click", ()=>{
+  State.overrides = {}; render();
+});
+document.getElementById("search").addEventListener("input", render);
+document.querySelectorAll("#reviewTable th").forEach(th=>{
+  th.addEventListener("click", ()=>{
+    const k = th.dataset.sort;
+    if(State.sortKey === k) State.sortDir *= -1;
+    else { State.sortKey = k; State.sortDir = (k==="count") ? -1 : 1; }
+    render();
+  });
+});
+</script>
+</body>
+</html>

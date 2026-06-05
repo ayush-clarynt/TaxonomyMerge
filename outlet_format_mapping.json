@@ -1,0 +1,37 @@
+{
+  "name": "CRMC Outlet Format Taxonomy",
+  "version": "v2",
+  "outlet_format": {
+    "description": "Physical shop type (consumer-goods-first). Assigned only to place_type values that are a point of sale.",
+    "unmapped_rule": "place_type values that are NOT a point of sale (e.g. doctor, hospital, bank, school, office, transport, worship, etc.) are left BLANK in the outlet_format column.",
+    "values": {
+      "KIR": "Kirana / General store / Provision",
+      "COS": "Cosmetics & Beauty store",
+      "CHE": "Chemist / Pharmacy / Medical",
+      "STN": "Stationery & Books (stationery, books, office supplies)",
+      "SUP": "Supermarket",
+      "HYP": "Hypermarket",
+      "DEP": "Departmental store",
+      "CON": "Convenience store",
+      "FCY": "Fancy store",
+      "EAT": "Eatery / Restaurant / Café / Tea stall",
+      "ICR": "Ice cream parlour",
+      "SAL": "Salon / Spa",
+      "FAS": "Fashion & Apparel — clothing, garments, sportswear",
+      "FTW": "Footwear — shoe / sneaker store",
+      "JWL": "Jewellery & Accessories",
+      "ELC": "Electronics & Appliances",
+      "MOB": "Mobile & Telecom retail",
+      "FUR": "Furniture & Home Furnishings",
+      "HDW": "Hardware, Building Materials & Home Improvement",
+      "AUT": "Automotive — vehicle dealers, parts, tyres, accessories",
+      "SPG": "Sports & Outdoor Goods",
+      "PET": "Pet Supplies",
+      "TOY": "Toys, Games & Hobby",
+      "GFT": "Gifts, Florist & Cards",
+      "LIQ": "Liquor & Beverages (off-trade)",
+      "GRD": "Garden Centre & Nursery",
+      "OTH": "Other"
+    }
+  }
+}
